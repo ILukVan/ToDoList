@@ -1,37 +1,26 @@
-const taskList = JSON.parse(localStorage.getItem('data')).filter(Boolean) ?? [];
-console.log({taskList});
-let num = 0;
-
+let taskList;
 
 function handleAddTodo(e) {
   if (e.key === "Enter") {
     let inputValue = document.querySelector("#newToDo").value.trim(); // получаем в переменную значение из строки и удаляю лишние пробелы
-  //  let todoList = document.querySelector("#todoList");
+    
     //защита от пустого ввода
-
-    let inputText = {
-      value: "",
-      zListClass: "",
-      zSpanClass: ""
-    };
     if (inputValue != "") {
       
-      inputText.value = inputValue;
-      displayToDoList(inputValue, taskList.length);
-
-      taskList.push(inputText);
+      const task = {
+        valueText: inputValue,
+        check: ""
+      };
+      reloadList();
+      sendServer(task);
     }
 
     document.querySelector("#newToDo").value = ""; // очитстить строку после нажатия кнопки
-    saveLocalStorage()
   }
 }
 
-function displayToDoList(ToDo, ToDoIndex) {
-  
-
+function displayToDoList(ToDo, indexToDo, checkTodo) {
   let listElement = document.createElement("li");
-  let inputcheck = document.createElement("input");
   let buttonDel = document.createElement("input");
   let buttonEdit = document.createElement("input");
   let inputSpan = document.createElement("span");
@@ -40,32 +29,36 @@ function displayToDoList(ToDo, ToDoIndex) {
   buttonCheck.textContent = "Check";
   buttonDel.value = "del";
   buttonEdit.value = "edit";
-  listElement.id = ToDoIndex+"li";
-  
+  listElement.id = indexToDo;
 
-  inputcheck.type = "checkbox";
   buttonDel.type = "button";
   buttonEdit.type = "button";
   inputSpan.setAttribute("contenteditable", "false");
 
-
-  inputcheck.classList.add("custom-checkbox-input");
   inputSpan.classList.add("text-decor");
   buttonDel.classList.add("buttonDel");
   buttonEdit.classList.add("buttonEdit");
   buttonCheck.classList.add("buttonCheck");
-
-  listElement.appendChild(buttonCheck);
-  listElement.appendChild(inputcheck);
-  listElement.appendChild(inputSpan);
-  listElement.appendChild(buttonDel);
-  listElement.appendChild(buttonEdit);
+  listElement.classList.add("task");
+  if (checkTodo == "true"){
+    listElement.classList.add("zzz");
+    inputSpan.classList.add("zzz2");
+  }
+  
+  listElement.appendChild(buttonCheck);   // lastLi.children[0]
+  listElement.appendChild(inputSpan);     // lastLi.children[1]
+  listElement.appendChild(buttonDel);     // lastLi.children[2]
+  listElement.appendChild(buttonEdit);    // lastLi.children[3]
   inputSpan.textContent = ToDo;
   todoList.insertBefore(listElement, resString);
+  
+  let elms = document.querySelectorAll('.task').length;
+  let spanTask = document.getElementById("spanTask");
+  spanTask.textContent = `Всего задач: ${elms}`;
 
-  //resString.textContent =`tasks: ${document.getElementById("todoList").childElementCount-1}`;
-  num++;
-
+  let elmsZZZ = document.querySelectorAll('.zzz').length;
+  let spanTaskZ = document.getElementById("spanTask-filter");
+  spanTaskZ.textContent = `Выполенно задач: ${elmsZZZ}`;
 }
 
 const todoInput = document.querySelector("#newToDo");
@@ -73,7 +66,8 @@ const todoInput = document.querySelector("#newToDo");
 todoInput.addEventListener("keydown", handleAddTodo);
 
 const mainContainer = document.querySelector(".list"); // выбираю ul  как цель
-// кнопка удалить
+
+// ------------------------------------------------------ кнопка удалить ------------------------
 mainContainer.addEventListener("click", function (e) {
   // Элемент, на котором был выполнен клик
   const targetElem = e.target;
@@ -90,16 +84,13 @@ mainContainer.addEventListener("click", function (e) {
   }
 
   const containerElem = targetElem.closest("li");
-
-  containerElem.remove();
-  //taskList.splice(findIndex(containerElem),1)
-  delete taskList[findIndex(containerElem)];
-  saveLocalStorage()
-
+  let liIndex = containerElem.id;
+  reloadList()
+  delToServ(liIndex);
 });
+// ------------------------------------------------------ кнопка удалить ------------------------
 
-
-// кнопка редактировать
+// -----------------------------------------------------кнопка редактировать-----------------------------------
 mainContainer.addEventListener("click", function (e) {
   const btn = e.target.closest(".buttonEdit");
 
@@ -108,26 +99,25 @@ mainContainer.addEventListener("click", function (e) {
   }
 
   let lastLi = btn.closest("li"); // ближайший li  к кнопке
-  let spanEd = lastLi.children[2]; // получаю
-  let butEd = lastLi.children[4]; //
+  let spanEd = lastLi.children[1]; // получаю
+  let butEd = lastLi.children[3]; //
   let getAtrSpan = spanEd.getAttribute("contenteditable");
+  let newText = spanEd.textContent
+
 
   if (getAtrSpan === "false") {
     spanEd.setAttribute("contenteditable", "true");
     butEd.setAttribute("value", "done");
-
-    
-
   } else {
     spanEd.setAttribute("contenteditable", "false");
     butEd.setAttribute("value", "edit");
-    let listIndex = findIndex(lastLi)
-    taskList[listIndex].value = spanEd.textContent;
-  }
-  saveLocalStorage()
+    reloadList();
+    editValue(newText, lastLi.id)
+    }
 });
+// ------------------------------ кнопка редактировать -------------------------------
 
-
+// ----------------------------------------------------------- отметить выполненное ---------------
 function checkList() {
   // кнопка отметить
   mainContainer.addEventListener("click", function (e) {
@@ -149,22 +139,25 @@ function checkList() {
     lastLi.classList.toggle("zzz");
     let butEd = lastLi.children[2];
     butEd.classList.toggle("zzz2");
-    
-    let listIndex = findIndex(lastLi)
-    console.log(taskList[listIndex].value);
-   if (lastLi.classList.contains('zzz')){
-    console.log("появился клас з");
-    taskList[listIndex].zListClass = "true";
-    taskList[listIndex].zSpanClass = "true";
-   }
-    else{
-      taskList[listIndex].zListClass ='false';
-      taskList[listIndex].zSpanClass = "false";
+    let statusCheck
+    if (lastLi.classList.contains("zzz")) {
+      console.log("появился клас з");
+      
+      statusCheck = "true";
+      reloadList()
+      checkTast(statusCheck, lastLi.id)
+
+    } else {
+      statusCheck = "false";
+      reloadList()
+      checkTast(statusCheck, lastLi.id)
     }
-    saveLocalStorage()
+
   });
 }
+// ----------------------------------------------------------- отметить выполненное ---------------
 
+// ----------------------------------------------------------- фильтр----------------
 mainContainer.addEventListener("click", function (e) {
   // Элемент, на котором был выполнен клик
   const targetElemFilter = e.target;
@@ -185,45 +178,110 @@ mainContainer.addEventListener("click", function (e) {
   divContainer.forEach((elem) => {
     elem.classList.toggle("zzz3");
   });
-let checkbox = document.querySelector(".filter");
-console.log(checkbox);
-let checkCheckBox = checkbox.checked;
-console.log({checkCheckBox});
-
-
+  let checkbox = document.querySelector(".filter");
+  console.log(checkbox);
+  let checkCheckBox = checkbox.checked;
+  console.log({ checkCheckBox });
 });
-
+// ----------------------------------------------------------- фильтр----------------
 checkList();
 
-// функция выделения индекса цифрой из id
-function findIndex(id){
-  let indexList = id.id
 
-// отделение через перебор циклом
- /* let numEl = '';
- for (var index in indexList) {
-    if ( parseInt(indexList[index]) !== NaN ) {
-      numEl += indexList[index]
+function sendServer(textData, index) {
+  fetch("http://localhost:3000/todos/add-todo", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json;charset=utf-8",
+    },
+    body: JSON.stringify(textData)
+  }).then((data) => {
+    data.json().then((info) => {
+      taskList = info;
+      taskList.forEach(elem => {
+        displayToDoList(elem.valueText, elem.id, elem.check);
+      })
+    });
+    
+  });
+
+}
+
+
+
+
+  fetch("http://localhost:3000/todos/get-list", { method: "GET" }).then(
+    (data) => {
+
+      data.json().then((info) => {
+
+        taskList = info
+        taskList.forEach(elem => {
+
+          displayToDoList(elem.valueText, elem.id, elem.check);
+        })
+      });
     }
+  );
+
+function reloadList(){
+  let taskLi = document.querySelectorAll(".task");
+  taskLi.forEach(elem => {
+    elem.remove();
+
+  });
+
   }
-  return parseInt(numEl);
-*/
-//отделение с помощью parseInt
-  return parseInt(indexList);
 
-}
-
-function saveLocalStorage() {
-  localStorage.setItem('data', JSON.stringify(taskList));
-}
-
-taskList.forEach((task, index) =>{
-
-    displayToDoList(task.value, index)
-    if (task.zListClass == "true"){
-      let listClass = document.getElementById(index+"li");
-      listClass.classList.add("zzz")
-      listClass.children[2].classList.add("zzz2")
+function editValue(editText, id){
+  fetch("http://localhost:3000/todos/edit-todo", {
+    method: "PUT",
+    headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
+    body: JSON.stringify({
+        id: parseFloat(id),
+        valueText: editText
+    })
+  }).then((data) => {
+      data.json().then((info) => {
+        taskList = info;
+        taskList.forEach(elem => {
+          displayToDoList(elem.valueText, elem.id, elem.check);
+        })
+      })
+    })
   }
-  
-})
+
+  function checkTast(check, id){
+    fetch("http://localhost:3000/todos/check-todo", {
+      method: "PUT",
+      headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
+      body: JSON.stringify({
+          id: parseFloat(id),
+          check: check
+      })
+    }).then((data) => {
+        data.json().then((info) => {
+          taskList = info;
+          taskList.forEach(elem => {
+            displayToDoList(elem.valueText, elem.id, elem.check);
+          })
+        })
+      })
+    }
+
+function delToServ(id){
+  console.log(id, "в фкнуции")
+  fetch("http://localhost:3000/todos/del-todo", {
+    method: "DELETE",
+    headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
+    body: JSON.stringify({
+      id: parseFloat(id)
+    })
+  }).then((data) => {
+      data.json().then((info) => {
+        taskList = info;
+        taskList.forEach(elem => {
+          displayToDoList(elem.valueText, elem.id, elem.check);
+        })
+      })
+    })
+  }
