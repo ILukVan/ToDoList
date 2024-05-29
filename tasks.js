@@ -11,7 +11,7 @@ function handleAddTodo(e) {
         valueText: inputValue,
         check: ""
       };
-      reloadList();
+      //reloadList();
       sendServer(task);
     }
 
@@ -40,7 +40,7 @@ function displayToDoList(ToDo, indexToDo, checkTodo) {
   buttonEdit.classList.add("buttonEdit");
   buttonCheck.classList.add("buttonCheck");
   listElement.classList.add("task");
-  if (checkTodo == "true"){
+  if (checkTodo == true){
     listElement.classList.add("zzz");
     inputSpan.classList.add("zzz2");
   }
@@ -87,6 +87,7 @@ mainContainer.addEventListener("click", function (e) {
   let liIndex = containerElem.id;
   reloadList()
   delToServ(liIndex);
+  //console.log(liIndex);
 });
 // ------------------------------------------------------ кнопка удалить ------------------------
 
@@ -112,6 +113,7 @@ mainContainer.addEventListener("click", function (e) {
     spanEd.setAttribute("contenteditable", "false");
     butEd.setAttribute("value", "edit");
     reloadList();
+    console.log(lastLi.id);
     editValue(newText, lastLi.id)
     }
 });
@@ -135,20 +137,18 @@ function checkList() {
       return;
     }
     let lastLi = targetElem.closest("li");
-    console.log(lastLi.id);
     lastLi.classList.toggle("zzz");
     let butEd = lastLi.children[2];
     butEd.classList.toggle("zzz2");
     let statusCheck
     if (lastLi.classList.contains("zzz")) {
-      console.log("появился клас з");
       
-      statusCheck = "true";
+      statusCheck = true;
       reloadList()
       checkTast(statusCheck, lastLi.id)
 
     } else {
-      statusCheck = "false";
+      statusCheck = false;
       reloadList()
       checkTast(statusCheck, lastLi.id)
     }
@@ -196,15 +196,14 @@ function sendServer(textData, index) {
     body: JSON.stringify(textData)
   }).then((data) => {
     data.json().then((info) => {
-      taskList = info;
-      taskList.forEach(elem => {
-        displayToDoList(elem.valueText, elem.id, elem.check);
+      console.log(info);
+      console.log(typeof(info));
+
+      displayToDoList(info.task, info.id, info.check_task);
       })
     });
+  }
     
-  });
-
-}
 
 
 
@@ -217,7 +216,7 @@ function sendServer(textData, index) {
         taskList = info
         taskList.forEach(elem => {
 
-          displayToDoList(elem.valueText, elem.id, elem.check);
+          displayToDoList(elem.task, elem.id, elem.check_task);
         })
       });
     }
@@ -233,18 +232,21 @@ function reloadList(){
   }
 
 function editValue(editText, id){
+  console.log(id);
   fetch("http://localhost:3000/todos/edit-todo", {
     method: "PUT",
     headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
     body: JSON.stringify({
-        id: parseFloat(id),
+        
+        id: id,
         valueText: editText
     })
   }).then((data) => {
       data.json().then((info) => {
         taskList = info;
+        console.log(taskList);
         taskList.forEach(elem => {
-          displayToDoList(elem.valueText, elem.id, elem.check);
+          displayToDoList(elem.task, elem.id, elem.check_task);
         })
       })
     })
@@ -255,14 +257,15 @@ function editValue(editText, id){
       method: "PUT",
       headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
       body: JSON.stringify({
-          id: parseFloat(id),
+          id: id,
           check: check
       })
     }).then((data) => {
         data.json().then((info) => {
           taskList = info;
+
           taskList.forEach(elem => {
-            displayToDoList(elem.valueText, elem.id, elem.check);
+            displayToDoList(elem.task, elem.id, elem.check_task);
           })
         })
       })
@@ -274,13 +277,14 @@ function delToServ(id){
     method: "DELETE",
     headers: { "Accept": "application/json", "Content-Type": "application/json;charset=utf-8" },
     body: JSON.stringify({
-      id: parseFloat(id)
+      id: id
     })
   }).then((data) => {
       data.json().then((info) => {
         taskList = info;
+        console.log(taskList);
         taskList.forEach(elem => {
-          displayToDoList(elem.valueText, elem.id, elem.check);
+          displayToDoList(elem.task, elem.id, elem.check_task);
         })
       })
     })
